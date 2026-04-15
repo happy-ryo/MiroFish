@@ -1024,7 +1024,7 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
         os.environ["OPENAI_API_KEY"] = llm_api_key
     
     if not os.environ.get("OPENAI_API_KEY"):
-        raise ValueError("缺少 API Key 配置，请在项目根目录 .env 文件中设置 LLM_API_KEY")
+        raise ValueError("Missing API Key, please set LLM_API_KEY in the project root .env file")
     
     if llm_base_url:
         os.environ["OPENAI_API_BASE_URL"] = llm_base_url

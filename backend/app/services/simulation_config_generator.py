@@ -483,7 +483,7 @@ class SimulationConfigGenerator:
                 import time
                 time.sleep(2 * (attempt + 1))
         
-        raise last_error or Exception("LLM调用失败")
+        raise last_error or Exception("LLM call failed")
     
     def _fix_truncated_json(self, content: str) -> str:
         """修复被截断的JSON"""
