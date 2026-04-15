@@ -307,12 +307,11 @@ const formatDateTime = (dateStr) => {
   try {
     const date = new Date(dateStr)
     return date.toLocaleString(locale.value, {
-      month: 'short', 
-      day: 'numeric', 
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
-      minute: '2-digit',
-      hour12: true 
+      minute: '2-digit'
     })
   } catch {
     return dateStr
