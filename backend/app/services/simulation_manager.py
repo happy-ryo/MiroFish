@@ -17,7 +17,7 @@ from ..utils.logger import get_logger
 from .zep_entity_reader import ZepEntityReader, FilteredEntities
 from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
 from .simulation_config_generator import SimulationConfigGenerator, SimulationParameters
-from ..utils.locale import t
+from ..utils.locale import get_localized_prompt, t
 
 logger = get_logger('mirofish.simulation')
 
@@ -261,7 +261,7 @@ class SimulationManager:
         """
         state = self._load_simulation_state(simulation_id)
         if not state:
-            raise ValueError(f"模拟不存在: {simulation_id}")
+            raise ValueError(f"Simulation not found: {simulation_id}")
         
         try:
             state.status = SimulationStatus.PREPARING
@@ -297,7 +297,10 @@ class SimulationManager:
             
             if filtered.filtered_count == 0:
                 state.status = SimulationStatus.FAILED
-                state.error = "没有找到符合条件的实体，请检查图谱是否正确构建"
+                state.error = get_localized_prompt(
+                    "No matching entities found, please check if the graph is built correctly",
+                    "没有找到符合条件的实体，请检查图谱是否正确构建"
+                )
                 self._save_simulation_state(state)
                 return state
             
@@ -482,7 +485,7 @@ class SimulationManager:
         """获取模拟的Agent Profile"""
         state = self._load_simulation_state(simulation_id)
         if not state:
-            raise ValueError(f"模拟不存在: {simulation_id}")
+            raise ValueError(f"Simulation not found: {simulation_id}")
         
         sim_dir = self._get_simulation_dir(simulation_id)
         profile_path = os.path.join(sim_dir, f"{platform}_profiles.json")

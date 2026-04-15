@@ -265,7 +265,7 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
     
     # 检查目录是否存在
     if not os.path.exists(simulation_dir):
-        return False, {"reason": "模拟目录不存在"}
+        return False, {"reason": get_localized_prompt("Simulation directory not found", "模拟目录不存在")}
     
     # 必要文件列表（不包括脚本，脚本位于 backend/scripts/）
     required_files = [
@@ -287,7 +287,7 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
     
     if missing_files:
         return False, {
-            "reason": "缺少必要文件",
+            "reason": get_localized_prompt("Missing required files", "缺少必要文件"),
             "missing_files": missing_files,
             "existing_files": existing_files
         }
@@ -352,13 +352,19 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
         else:
             logger.warning(f"模拟 {simulation_id} 检测结果: 未准备完成 (status={status}, config_generated={config_generated})")
             return False, {
-                "reason": f"状态不在已准备列表中或config_generated为false: status={status}, config_generated={config_generated}",
+                "reason": get_localized_prompt(
+                    f"Status not in ready list or config_generated is false: status={status}, config_generated={config_generated}",
+                    f"状态不在已准备列表中或config_generated为false: status={status}, config_generated={config_generated}"
+                ),
                 "status": status,
                 "config_generated": config_generated
             }
             
     except Exception as e:
-        return False, {"reason": f"读取状态文件失败: {str(e)}"}
+        return False, {"reason": get_localized_prompt(
+            f"Failed to read state file: {str(e)}",
+            f"读取状态文件失败: {str(e)}"
+        )}
 
 
 @simulation_bp.route('/prepare', methods=['POST'])
