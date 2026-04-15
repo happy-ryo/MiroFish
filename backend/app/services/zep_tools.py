@@ -1413,9 +1413,12 @@ Requirements:
             
             # 检查API调用是否成功
             if not api_result.get("success", False):
-                error_msg = api_result.get("error", "未知错误")
+                error_msg = api_result.get("error", get_localized_prompt("unknown error", "未知错误"))
                 logger.warning(t("console.interviewApiReturnedFailure", error=error_msg))
-                result.summary = f"采访API调用失败：{error_msg}。请检查OASIS模拟环境状态。"
+                result.summary = get_localized_prompt(
+                    f"Interview API call failed: {error_msg}. Please check OASIS simulation environment status.",
+                    f"采访API调用失败：{error_msg}。请检查OASIS模拟环境状态。"
+                )
                 return result
             
             # Step 5: 解析API返回结果，构建AgentInterview对象
@@ -1426,7 +1429,7 @@ Requirements:
             for i, agent_idx in enumerate(selected_indices):
                 agent = selected_agents[i]
                 agent_name = agent.get("realname", agent.get("username", f"Agent_{agent_idx}"))
-                agent_role = agent.get("profession", "未知")
+                agent_role = agent.get("profession", get_localized_prompt("Unknown", "未知"))
                 agent_bio = agent.get("bio", "")
                 
                 # 获取该Agent在两个平台的采访结果
@@ -1441,9 +1444,12 @@ Requirements:
                 reddit_response = self._clean_tool_call_response(reddit_response)
 
                 # 始终输出双平台标记
-                twitter_text = twitter_response if twitter_response else "（该平台未获得回复）"
-                reddit_text = reddit_response if reddit_response else "（该平台未获得回复）"
-                response_text = f"【Twitter平台回答】\n{twitter_text}\n\n【Reddit平台回答】\n{reddit_text}"
+                _no_response = get_localized_prompt("(No response from this platform)", "（该平台未获得回复）")
+                twitter_text = twitter_response if twitter_response else _no_response
+                reddit_text = reddit_response if reddit_response else _no_response
+                _twitter_label = get_localized_prompt("[Twitter Platform Response]", "【Twitter平台回答】")
+                _reddit_label = get_localized_prompt("[Reddit Platform Response]", "【Reddit平台回答】")
+                response_text = f"{_twitter_label}\n{twitter_text}\n\n{_reddit_label}\n{reddit_text}"
 
                 # 提取关键引言（从两个平台的回答中）
                 import re

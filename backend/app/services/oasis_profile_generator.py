@@ -391,15 +391,18 @@ class OasisProfileGenerator:
                     if hasattr(node, 'summary') and node.summary:
                         all_summaries.add(node.summary)
                     if hasattr(node, 'name') and node.name and node.name != entity_name:
-                        all_summaries.add(f"相关实体: {node.name}")
+                        _related_label = get_localized_prompt("Related entity", "相关实体")
+                        all_summaries.add(f"{_related_label}: {node.name}")
             results["node_summaries"] = list(all_summaries)
-            
+
             # 构建综合上下文
             context_parts = []
             if results["facts"]:
-                context_parts.append("事实信息:\n" + "\n".join(f"- {f}" for f in results["facts"][:20]))
+                _facts_label = get_localized_prompt("Fact information", "事实信息")
+                context_parts.append(f"{_facts_label}:\n" + "\n".join(f"- {f}" for f in results["facts"][:20]))
             if results["node_summaries"]:
-                context_parts.append("相关实体:\n" + "\n".join(f"- {s}" for s in results["node_summaries"][:10]))
+                _related_label = get_localized_prompt("Related entities", "相关实体")
+                context_parts.append(f"{_related_label}:\n" + "\n".join(f"- {s}" for s in results["node_summaries"][:10]))
             results["context"] = "\n\n".join(context_parts)
             
             logger.info(f"Zep混合检索完成: {entity_name}, 获取 {len(results['facts'])} 条事实, {len(results['node_summaries'])} 个相关节点")
@@ -429,7 +432,8 @@ class OasisProfileGenerator:
                 if value and str(value).strip():
                     attrs.append(f"- {key}: {value}")
             if attrs:
-                context_parts.append("### 实体属性\n" + "\n".join(attrs))
+                _attr_heading = get_localized_prompt("### Entity Attributes", "### 实体属性")
+                context_parts.append(f"{_attr_heading}\n" + "\n".join(attrs))
         
         # 2. 添加相关边信息（事实/关系）
         existing_facts = set()
@@ -444,13 +448,15 @@ class OasisProfileGenerator:
                     relationships.append(f"- {fact}")
                     existing_facts.add(fact)
                 elif edge_name:
+                    _rel_entity = get_localized_prompt("related entity", "相关实体")
                     if direction == "outgoing":
-                        relationships.append(f"- {entity.name} --[{edge_name}]--> (相关实体)")
+                        relationships.append(f"- {entity.name} --[{edge_name}]--> ({_rel_entity})")
                     else:
-                        relationships.append(f"- (相关实体) --[{edge_name}]--> {entity.name}")
+                        relationships.append(f"- ({_rel_entity}) --[{edge_name}]--> {entity.name}")
             
             if relationships:
-                context_parts.append("### 相关事实和关系\n" + "\n".join(relationships))
+                _facts_heading = get_localized_prompt("### Related Facts and Relationships", "### 相关事实和关系")
+                context_parts.append(f"{_facts_heading}\n" + "\n".join(relationships))
         
         # 3. 添加关联节点的详细信息
         if entity.related_nodes:
@@ -470,7 +476,8 @@ class OasisProfileGenerator:
                     related_info.append(f"- **{node_name}**{label_str}")
             
             if related_info:
-                context_parts.append("### 关联实体信息\n" + "\n".join(related_info))
+                _related_heading = get_localized_prompt("### Related Entity Information", "### 关联实体信息")
+                context_parts.append(f"{_related_heading}\n" + "\n".join(related_info))
         
         # 4. 使用Zep混合检索获取更丰富的信息
         zep_results = self._search_zep_for_entity(entity)
@@ -479,10 +486,12 @@ class OasisProfileGenerator:
             # 去重：排除已存在的事实
             new_facts = [f for f in zep_results["facts"] if f not in existing_facts]
             if new_facts:
-                context_parts.append("### Zep检索到的事实信息\n" + "\n".join(f"- {f}" for f in new_facts[:15]))
-        
+                _zep_facts = get_localized_prompt("### Zep Retrieved Facts", "### Zep检索到的事实信息")
+                context_parts.append(f"{_zep_facts}\n" + "\n".join(f"- {f}" for f in new_facts[:15]))
+
         if zep_results.get("node_summaries"):
-            context_parts.append("### Zep检索到的相关节点\n" + "\n".join(f"- {s}" for s in zep_results["node_summaries"][:10]))
+            _zep_nodes = get_localized_prompt("### Zep Retrieved Related Nodes", "### Zep检索到的相关节点")
+            context_parts.append(f"{_zep_nodes}\n" + "\n".join(f"- {s}" for s in zep_results["node_summaries"][:10]))
         
         return "\n\n".join(context_parts)
     

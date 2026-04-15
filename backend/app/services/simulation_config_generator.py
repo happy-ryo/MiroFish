@@ -390,19 +390,22 @@ class SimulationConfigGenerator:
         entity_summary = self._summarize_entities(entities)
         
         # 构建上下文
+        _sim_heading = get_localized_prompt("## Simulation Requirement", "## 模拟需求")
+        _entity_heading = get_localized_prompt(f"## Entity Information ({len(entities)} entities)", f"## 实体信息 ({len(entities)}个)")
         context_parts = [
-            f"## 模拟需求\n{simulation_requirement}",
-            f"\n## 实体信息 ({len(entities)}个)\n{entity_summary}",
+            f"{_sim_heading}\n{simulation_requirement}",
+            f"\n{_entity_heading}\n{entity_summary}",
         ]
-        
+
         current_length = sum(len(p) for p in context_parts)
         remaining_length = self.MAX_CONTEXT_LENGTH - current_length - 500  # 留500字符余量
-        
+
         if remaining_length > 0 and document_text:
             doc_text = document_text[:remaining_length]
             if len(document_text) > remaining_length:
-                doc_text += "\n...(文档已截断)"
-            context_parts.append(f"\n## 原始文档内容\n{doc_text}")
+                doc_text += get_localized_prompt("\n...(document truncated)", "\n...(文档已截断)")
+            _doc_heading = get_localized_prompt("## Original Document Content", "## 原始文档内容")
+            context_parts.append(f"\n{_doc_heading}\n{doc_text}")
         
         return "\n".join(context_parts)
     
@@ -418,8 +421,9 @@ class SimulationConfigGenerator:
                 by_type[t] = []
             by_type[t].append(e)
         
+        _count_suffix = get_localized_prompt("entities", "个")
         for entity_type, type_entities in by_type.items():
-            lines.append(f"\n### {entity_type} ({len(type_entities)}个)")
+            lines.append(f"\n### {entity_type} ({len(type_entities)} {_count_suffix})")
             # 使用配置的显示数量和摘要长度
             display_count = self.ENTITIES_PER_TYPE_DISPLAY
             summary_len = self.ENTITY_SUMMARY_LENGTH
@@ -427,7 +431,8 @@ class SimulationConfigGenerator:
                 summary_preview = (e.summary[:summary_len] + "...") if len(e.summary) > summary_len else e.summary
                 lines.append(f"- {e.name}: {summary_preview}")
             if len(type_entities) > display_count:
-                lines.append(f"  ... 还有 {len(type_entities) - display_count} 个")
+                _remaining = len(type_entities) - display_count
+                lines.append(get_localized_prompt(f"  ... and {_remaining} more", f"  ... 还有 {_remaining} 个"))
         
         return "\n".join(lines)
     

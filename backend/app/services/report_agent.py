@@ -471,9 +471,27 @@ class Report:
 # Prompt 模板常量
 # ═══════════════════════════════════════════════════════════════
 
-# ── 工具描述 ──
+# ── Tool descriptions ──
 
-TOOL_DESC_INSIGHT_FORGE = """\
+_TOOL_DESC_INSIGHT_FORGE_EN = """\
+[Deep Insight Search — Powerful Search Tool]
+A powerful search function designed for deep analysis. It will:
+1. Automatically decompose your question into multiple sub-questions
+2. Search the simulation graph from multiple dimensions
+3. Integrate results from semantic search, entity analysis, and relationship chain tracking
+4. Return the most comprehensive and in-depth search content
+
+[Use Cases]
+- Need in-depth analysis of a topic
+- Need to understand multiple aspects of an event
+- Need rich material to support report sections
+
+[Returns]
+- Related fact text (can be quoted directly)
+- Core entity insights
+- Relationship chain analysis"""
+
+_TOOL_DESC_INSIGHT_FORGE_ZH = """\
 【深度洞察检索 - 强大的检索工具】
 这是我们强大的检索函数，专为深度分析设计。它会：
 1. 自动将你的问题分解为多个子问题
@@ -491,7 +509,24 @@ TOOL_DESC_INSIGHT_FORGE = """\
 - 核心实体洞察
 - 关系链分析"""
 
-TOOL_DESC_PANORAMA_SEARCH = """\
+_TOOL_DESC_PANORAMA_SEARCH_EN = """\
+[Panoramic Search — Full Overview]
+This tool obtains a complete overview of simulation results, especially suitable for understanding event evolution. It will:
+1. Retrieve all related nodes and relationships
+2. Distinguish between currently valid facts and historical/expired facts
+3. Help you understand how public opinion evolved
+
+[Use Cases]
+- Need the complete development trajectory of an event
+- Need to compare public opinion changes across different phases
+- Need comprehensive entity and relationship information
+
+[Returns]
+- Currently valid facts (latest simulation results)
+- Historical/expired facts (evolution records)
+- All involved entities"""
+
+_TOOL_DESC_PANORAMA_SEARCH_ZH = """\
 【广度搜索 - 获取全貌视图】
 这个工具用于获取模拟结果的完整全貌，特别适合了解事件演变过程。它会：
 1. 获取所有相关节点和关系
@@ -508,7 +543,19 @@ TOOL_DESC_PANORAMA_SEARCH = """\
 - 历史/过期事实（演变记录）
 - 所有涉及的实体"""
 
-TOOL_DESC_QUICK_SEARCH = """\
+_TOOL_DESC_QUICK_SEARCH_EN = """\
+[Quick Search — Fast Retrieval]
+A lightweight quick search tool suitable for simple, direct information queries.
+
+[Use Cases]
+- Need to quickly find specific information
+- Need to verify a fact
+- Simple information retrieval
+
+[Returns]
+- List of facts most relevant to the query"""
+
+_TOOL_DESC_QUICK_SEARCH_ZH = """\
 【简单搜索 - 快速检索】
 轻量级的快速检索工具，适合简单、直接的信息查询。
 
@@ -520,7 +567,34 @@ TOOL_DESC_QUICK_SEARCH = """\
 【返回内容】
 - 与查询最相关的事实列表"""
 
-TOOL_DESC_INTERVIEW_AGENTS = """\
+_TOOL_DESC_INTERVIEW_AGENTS_EN = """\
+[Deep Interview — Real Agent Interview (Dual Platform)]
+Calls the OASIS simulation environment's interview API to conduct real interviews with running simulated Agents!
+This is not LLM simulation — it calls real interview endpoints to get simulated Agents' original responses.
+Interviews on both Twitter and Reddit platforms by default for more comprehensive perspectives.
+
+Workflow:
+1. Automatically reads persona files to understand all simulated Agents
+2. Intelligently selects Agents most relevant to the interview topic (e.g., students, media, officials)
+3. Automatically generates interview questions
+4. Calls /api/simulation/interview/batch endpoint for real dual-platform interviews
+5. Integrates all interview results, providing multi-perspective analysis
+
+[Use Cases]
+- Need different role perspectives on events (What do students think? Media? Officials?)
+- Need to collect opinions and stances from multiple parties
+- Need real responses from simulated Agents (from OASIS simulation environment)
+- Want to make the report more vivid with "interview records"
+
+[Returns]
+- Interviewed Agent identity information
+- Each Agent's interview responses on Twitter and Reddit platforms
+- Key quotes (can be quoted directly)
+- Interview summary and viewpoint comparison
+
+[Important] Requires OASIS simulation environment to be running!"""
+
+_TOOL_DESC_INTERVIEW_AGENTS_ZH = """\
 【深度采访 - 真实Agent采访（双平台）】
 调用OASIS模拟环境的采访API，对正在运行的模拟Agent进行真实采访！
 这不是LLM模拟，而是调用真实的采访接口获取模拟Agent的原始回答。
@@ -546,6 +620,19 @@ TOOL_DESC_INTERVIEW_AGENTS = """\
 - 采访摘要和观点对比
 
 【重要】需要OASIS模拟环境正在运行才能使用此功能！"""
+
+
+def _get_tool_desc_insight_forge():
+    return get_localized_prompt(_TOOL_DESC_INSIGHT_FORGE_EN, _TOOL_DESC_INSIGHT_FORGE_ZH)
+
+def _get_tool_desc_panorama_search():
+    return get_localized_prompt(_TOOL_DESC_PANORAMA_SEARCH_EN, _TOOL_DESC_PANORAMA_SEARCH_ZH)
+
+def _get_tool_desc_quick_search():
+    return get_localized_prompt(_TOOL_DESC_QUICK_SEARCH_EN, _TOOL_DESC_QUICK_SEARCH_ZH)
+
+def _get_tool_desc_interview_agents():
+    return get_localized_prompt(_TOOL_DESC_INTERVIEW_AGENTS_EN, _TOOL_DESC_INTERVIEW_AGENTS_ZH)
 
 # ── Outline planning prompt ──
 
@@ -1275,34 +1362,34 @@ class ReportAgent:
         return {
             "insight_forge": {
                 "name": "insight_forge",
-                "description": TOOL_DESC_INSIGHT_FORGE,
+                "description": _get_tool_desc_insight_forge(),
                 "parameters": {
-                    "query": "你想深入分析的问题或话题",
-                    "report_context": "当前报告章节的上下文（可选，有助于生成更精准的子问题）"
+                    "query": get_localized_prompt("The question or topic you want to analyze in depth", "你想深入分析的问题或话题"),
+                    "report_context": get_localized_prompt("Context of the current report section (optional, helps generate more precise sub-questions)", "当前报告章节的上下文（可选，有助于生成更精准的子问题）")
                 }
             },
             "panorama_search": {
                 "name": "panorama_search",
-                "description": TOOL_DESC_PANORAMA_SEARCH,
+                "description": _get_tool_desc_panorama_search(),
                 "parameters": {
-                    "query": "搜索查询，用于相关性排序",
-                    "include_expired": "是否包含过期/历史内容（默认True）"
+                    "query": get_localized_prompt("Search query for relevance ranking", "搜索查询，用于相关性排序"),
+                    "include_expired": get_localized_prompt("Whether to include expired/historical content (default True)", "是否包含过期/历史内容（默认True）")
                 }
             },
             "quick_search": {
                 "name": "quick_search",
-                "description": TOOL_DESC_QUICK_SEARCH,
+                "description": _get_tool_desc_quick_search(),
                 "parameters": {
-                    "query": "搜索查询字符串",
-                    "limit": "返回结果数量（可选，默认10）"
+                    "query": get_localized_prompt("Search query string", "搜索查询字符串"),
+                    "limit": get_localized_prompt("Number of results to return (optional, default 10)", "返回结果数量（可选，默认10）")
                 }
             },
             "interview_agents": {
                 "name": "interview_agents",
-                "description": TOOL_DESC_INTERVIEW_AGENTS,
+                "description": _get_tool_desc_interview_agents(),
                 "parameters": {
-                    "interview_topic": "采访主题或需求描述（如：'了解学生对宿舍甲醛事件的看法'）",
-                    "max_agents": "最多采访的Agent数量（可选，默认5，最大10）"
+                    "interview_topic": get_localized_prompt("Interview topic or requirement description (e.g., 'Understand students' views on the event')", "采访主题或需求描述（如：'了解学生对宿舍甲醛事件的看法'）"),
+                    "max_agents": get_localized_prompt("Maximum number of Agents to interview (optional, default 5, max 10)", "最多采访的Agent数量（可选，默认5，最大10）")
                 }
             }
         }
@@ -1409,11 +1496,14 @@ class ReportAgent:
                 return json.dumps(result, ensure_ascii=False, indent=2)
             
             else:
-                return f"未知工具: {tool_name}。请使用以下工具之一: insight_forge, panorama_search, quick_search"
-                
+                return get_localized_prompt(
+                    f"Unknown tool: {tool_name}. Please use one of: insight_forge, panorama_search, quick_search",
+                    f"未知工具: {tool_name}。请使用以下工具之一: insight_forge, panorama_search, quick_search"
+                )
+
         except Exception as e:
             logger.error(t('report.toolExecFailed', toolName=tool_name, error=str(e)))
-            return f"工具执行失败: {str(e)}"
+            return get_localized_prompt(f"Tool execution failed: {str(e)}", f"工具执行失败: {str(e)}")
     
     # 合法的工具名称集合，用于裸 JSON 兜底解析时校验
     VALID_TOOL_NAMES = {"insight_forge", "panorama_search", "quick_search", "interview_agents"}
@@ -1480,12 +1570,14 @@ class ReportAgent:
     
     def _get_tools_description(self) -> str:
         """生成工具描述文本"""
-        desc_parts = ["可用工具："]
+        _header = get_localized_prompt("Available tools:", "可用工具：")
+        _params_label = get_localized_prompt("Parameters", "参数")
+        desc_parts = [_header]
         for name, tool in self.tools.items():
             params_desc = ", ".join([f"{k}: {v}" for k, v in tool["parameters"].items()])
             desc_parts.append(f"- {name}: {tool['description']}")
             if params_desc:
-                desc_parts.append(f"  参数: {params_desc}")
+                desc_parts.append(f"  {_params_label}: {params_desc}")
         return "\n".join(desc_parts)
     
     def plan_outline(
@@ -1692,7 +1784,12 @@ class ReportAgent:
                     messages.append({"role": "assistant", "content": response})
                     messages.append({
                         "role": "user",
-                        "content": (
+                        "content": get_localized_prompt(
+                            "[Format Error] You included both a tool call and Final Answer in a single reply, which is not allowed.\n"
+                            "Each reply can only do one of two things:\n"
+                            "- Call a tool (output one <tool_call> block, do not write Final Answer)\n"
+                            "- Output final content (start with 'Final Answer:', do not include <tool_call>)\n"
+                            "Please reply again, doing only one of these.",
                             "【格式错误】你在一次回复中同时包含了工具调用和 Final Answer，这是不允许的。\n"
                             "每次回复只能做以下两件事之一：\n"
                             "- 调用一个工具（输出一个 <tool_call> 块，不要写 Final Answer）\n"
@@ -1731,7 +1828,7 @@ class ReportAgent:
                 if tool_calls_count < min_tool_calls:
                     messages.append({"role": "assistant", "content": response})
                     unused_tools = all_tools - used_tools
-                    unused_hint = f"（这些工具还未使用，推荐用一下他们: {', '.join(unused_tools)}）" if unused_tools else ""
+                    unused_hint = get_localized_prompt(f"(These tools haven't been used yet, try them: {', '.join(unused_tools)})", f"（这些工具还未使用，推荐用一下他们: {', '.join(unused_tools)}）") if unused_tools else ""
                     messages.append({
                         "role": "user",
                         "content": _get_react_insufficient_tools_msg().format(
@@ -1827,7 +1924,7 @@ class ReportAgent:
             if tool_calls_count < min_tool_calls:
                 # 工具调用次数不足，推荐未用过的工具
                 unused_tools = all_tools - used_tools
-                unused_hint = f"（这些工具还未使用，推荐用一下他们: {', '.join(unused_tools)}）" if unused_tools else ""
+                unused_hint = get_localized_prompt(f"(These tools haven't been used yet, try them: {', '.join(unused_tools)})", f"（这些工具还未使用，推荐用一下他们: {', '.join(unused_tools)}）") if unused_tools else ""
 
                 messages.append({
                     "role": "user",
