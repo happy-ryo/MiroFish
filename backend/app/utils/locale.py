@@ -67,3 +67,14 @@ def get_language_instruction() -> str:
     locale = get_locale()
     lang_config = _languages.get(locale, _languages.get('zh', {}))
     return lang_config.get('llmInstruction', '请使用中文回答。')
+
+
+def get_localized_prompt(en: str, zh: str = None) -> str:
+    """Return zh prompt for zh locale, English for everything else.
+
+    This keeps Chinese prompts for zh users (no regression) while
+    defaulting to English for all other locales (better LLM comprehension).
+    """
+    if zh and get_locale() == 'zh':
+        return zh
+    return en

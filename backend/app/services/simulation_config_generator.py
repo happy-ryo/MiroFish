@@ -20,7 +20,7 @@ from openai import OpenAI
 
 from ..config import Config
 from ..utils.logger import get_logger
-from ..utils.locale import get_language_instruction, t
+from ..utils.locale import get_language_instruction, get_localized_prompt, t
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.simulation_config')
@@ -540,7 +540,54 @@ class SimulationConfigGenerator:
         # 计算最大允许值（80%的agent数）
         max_agents_allowed = max(1, int(num_entities * 0.9))
         
-        prompt = f"""基于以下模拟需求，生成时间模拟配置。
+        prompt = get_localized_prompt(
+            # ── English ──
+            f"""Based on the following simulation requirements, generate a time simulation configuration.
+
+{context_truncated}
+
+## Task
+Generate a time configuration JSON.
+
+### Basic Principles (reference only — adjust flexibly based on the specific event and participant groups):
+- Infer the target user group's timezone and daily habits from the simulation scenario; below is a reference example for UTC+8
+- 0-5am: Almost no activity (activity coefficient 0.05)
+- 6-8am: Gradually active (activity coefficient 0.4)
+- 9am-6pm: Moderately active during work hours (activity coefficient 0.7)
+- 7-10pm: Peak period (activity coefficient 1.5)
+- After 11pm: Activity declines (activity coefficient 0.5)
+- General pattern: Low activity at dawn, gradual increase in morning, moderate during work hours, peak in evening
+- **Important**: The example values below are for reference only; adjust based on event nature and participant characteristics
+  - Example: Student groups may peak at 9-11pm; media active all day; official institutions only during work hours
+  - Example: Breaking news may lead to late-night discussions; off_peak_hours can be shortened accordingly
+
+### Return JSON format (no markdown)
+
+Example:
+{{
+    "total_simulation_hours": 72,
+    "minutes_per_round": 60,
+    "agents_per_hour_min": 5,
+    "agents_per_hour_max": 50,
+    "peak_hours": [19, 20, 21, 22],
+    "off_peak_hours": [0, 1, 2, 3, 4, 5],
+    "morning_hours": [6, 7, 8],
+    "work_hours": [9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    "reasoning": "Explanation of time configuration for this event"
+}}
+
+Field descriptions:
+- total_simulation_hours (int): Total simulation duration, 24-168 hours; shorter for breaking events, longer for sustained topics
+- minutes_per_round (int): Duration per round, 30-120 minutes; 60 minutes recommended
+- agents_per_hour_min (int): Minimum Agents activated per hour (range: 1-{max_agents_allowed})
+- agents_per_hour_max (int): Maximum Agents activated per hour (range: 1-{max_agents_allowed})
+- peak_hours (int array): Peak hours, adjust based on participant groups
+- off_peak_hours (int array): Off-peak hours, typically late night/early morning
+- morning_hours (int array): Morning hours
+- work_hours (int array): Work hours
+- reasoning (string): Brief explanation of why this configuration was chosen""",
+            # ── Chinese ──
+            f"""基于以下模拟需求，生成时间模拟配置。
 
 {context_truncated}
 
@@ -584,8 +631,12 @@ class SimulationConfigGenerator:
 - morning_hours (int数组): 早间时段
 - work_hours (int数组): 工作时段
 - reasoning (string): 简要说明为什么这样配置"""
+        )
 
-        system_prompt = "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合模拟场景中目标用户群体的作息习惯。"
+        system_prompt = get_localized_prompt(
+            "You are a social media simulation expert. Return pure JSON format. Time configuration must match the daily habits of the target user group in the simulation scenario.",
+            "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合模拟场景中目标用户群体的作息习惯。"
+        )
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}"
 
         try:
@@ -673,7 +724,38 @@ class SimulationConfigGenerator:
         # 使用配置的上下文截断长度
         context_truncated = context[:self.EVENT_CONFIG_CONTEXT_LENGTH]
         
-        prompt = f"""基于以下模拟需求，生成事件配置。
+        prompt = get_localized_prompt(
+            # ── English ──
+            f"""Based on the following simulation requirements, generate an event configuration.
+
+Simulation requirement: {simulation_requirement}
+
+{context_truncated}
+
+## Available Entity Types and Examples
+{type_info}
+
+## Task
+Generate an event configuration JSON:
+- Extract hot topic keywords
+- Describe the direction of public opinion development
+- Design initial post content; **each post must specify poster_type (publisher type)**
+
+**Important**: poster_type must be selected from the "Available Entity Types" above, so initial posts can be assigned to appropriate Agents.
+Example: Official statements should be published by Official/University types, news by MediaOutlet, student opinions by Student.
+
+Return JSON format (no markdown):
+{{
+    "hot_topics": ["keyword1", "keyword2", ...],
+    "narrative_direction": "<description of public opinion development direction>",
+    "initial_posts": [
+        {{"content": "post content", "poster_type": "entity type (must be from available types)"}},
+        ...
+    ],
+    "reasoning": "<brief explanation>"
+}}""",
+            # ── Chinese ──
+            f"""基于以下模拟需求，生成事件配置。
 
 模拟需求: {simulation_requirement}
 
@@ -701,8 +783,12 @@ class SimulationConfigGenerator:
     ],
     "reasoning": "<简要说明>"
 }}"""
+        )
 
-        system_prompt = "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
+        system_prompt = get_localized_prompt(
+            "You are a public opinion analysis expert. Return pure JSON format. Note that poster_type must exactly match available entity types.",
+            "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
+        )
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}\nIMPORTANT: The 'poster_type' field value MUST be in English PascalCase exactly matching the available entity types. Only 'content', 'narrative_direction', 'hot_topics' and 'reasoning' fields should use the specified language."
 
         try:
@@ -830,7 +916,45 @@ class SimulationConfigGenerator:
                 "summary": e.summary[:summary_len] if e.summary else ""
             })
         
-        prompt = f"""基于以下信息，为每个实体生成社交媒体活动配置。
+        prompt = get_localized_prompt(
+            # ── English ──
+            f"""Based on the following information, generate social media activity configurations for each entity.
+
+Simulation requirement: {simulation_requirement}
+
+## Entity List
+```json
+{json.dumps(entity_list, ensure_ascii=False, indent=2)}
+```
+
+## Task
+Generate activity configurations for each entity. Notes:
+- **Timing must match target user group's daily habits**: Below are references; adjust based on simulation scenario
+- **Official institutions** (University/GovernmentAgency): Low activity (0.1-0.3), active during work hours (9-17), slow response (60-240 min), high influence (2.5-3.0)
+- **Media** (MediaOutlet): Medium activity (0.4-0.6), active all day (8-23), fast response (5-30 min), high influence (2.0-2.5)
+- **Individuals** (Student/Person/Alumni): High activity (0.6-0.9), mainly active in evenings (18-23), fast response (1-15 min), low influence (0.8-1.2)
+- **Public figures/experts**: Medium activity (0.4-0.6), medium-high influence (1.5-2.0)
+
+Return JSON format (no markdown):
+{{
+    "agent_configs": [
+        {{
+            "agent_id": <must match input>,
+            "activity_level": <0.0-1.0>,
+            "posts_per_hour": <posting frequency>,
+            "comments_per_hour": <comment frequency>,
+            "active_hours": [<active hour list, consider target audience's daily rhythm>],
+            "response_delay_min": <minimum response delay in minutes>,
+            "response_delay_max": <maximum response delay in minutes>,
+            "sentiment_bias": <-1.0 to 1.0>,
+            "stance": "<supportive/opposing/neutral/observer>",
+            "influence_weight": <influence weight>
+        }},
+        ...
+    ]
+}}""",
+            # ── Chinese ──
+            f"""基于以下信息，为每个实体生成社交媒体活动配置。
 
 模拟需求: {simulation_requirement}
 
@@ -865,8 +989,12 @@ class SimulationConfigGenerator:
         ...
     ]
 }}"""
+        )
 
-        system_prompt = "你是社交媒体行为分析专家。返回纯JSON，配置需符合模拟场景中目标用户群体的作息习惯。"
+        system_prompt = get_localized_prompt(
+            "You are a social media behavior analysis expert. Return pure JSON. Configuration must match the daily habits of the target user group in the simulation scenario.",
+            "你是社交媒体行为分析专家。返回纯JSON，配置需符合模拟场景中目标用户群体的作息习惯。"
+        )
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}\nIMPORTANT: The 'stance' field value MUST be one of the English strings: 'supportive', 'opposing', 'neutral', 'observer'. All JSON field names and numeric values must remain unchanged. Only natural language text fields should use the specified language."
 
         try:

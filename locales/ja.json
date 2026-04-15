@@ -282,7 +282,11 @@
     "errorOccurred": "エラーが発生しました: {error}",
     "noResponse": "応答なし",
     "requestFailed": "リクエスト失敗",
-    "selectAgentFirst": "シミュレーション個体を先に選択してください"
+    "selectAgentFirst": "シミュレーション個体を先に選択してください",
+    "chatRoleQuestioner": "質問者",
+    "chatRoleYou": "あなた",
+    "chatPreviousDialog": "以下は以前の会話です：",
+    "chatNewQuestion": "新しい質問："
   },
   "graph": {
     "panelTitle": "グラフ関係可視化",

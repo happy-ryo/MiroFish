@@ -282,7 +282,11 @@
     "errorOccurred": "Sorry, an error occurred: {error}",
     "noResponse": "No response",
     "requestFailed": "Request failed",
-    "selectAgentFirst": "Please select a simulated individual first"
+    "selectAgentFirst": "Please select a simulated individual first",
+    "chatRoleQuestioner": "Questioner",
+    "chatRoleYou": "You",
+    "chatPreviousDialog": "Here is our previous conversation:",
+    "chatNewQuestion": "Now my new question is:"
   },
   "graph": {
     "panelTitle": "Graph Relationship Visualization",

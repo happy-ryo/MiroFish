@@ -14,33 +14,38 @@ from ..services.oasis_profile_generator import OasisProfileGenerator
 from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
-from ..utils.locale import t, get_locale, set_locale
+from ..utils.locale import t, get_locale, set_locale, get_localized_prompt
 from ..models.project import ProjectManager
 
 logger = get_logger('mirofish.api.simulation')
 
 
-# Interview prompt 优化前缀
-# 添加此前缀可以避免Agent调用工具，直接用文本回复
-INTERVIEW_PROMPT_PREFIX = "结合你的人设、所有的过往记忆与行动，不调用任何工具直接用文本回复我："
+# Interview prompt prefix — instructs the Agent to reply in plain text without tool calls
+_INTERVIEW_PROMPT_PREFIX_EN = "Based on your persona, all past memories and actions, reply directly in text without calling any tools: "
+_INTERVIEW_PROMPT_PREFIX_ZH = "结合你的人设、所有的过往记忆与行动，不调用任何工具直接用文本回复我："
+
+
+def get_interview_prompt_prefix() -> str:
+    return get_localized_prompt(_INTERVIEW_PROMPT_PREFIX_EN, _INTERVIEW_PROMPT_PREFIX_ZH)
 
 
 def optimize_interview_prompt(prompt: str) -> str:
     """
     优化Interview提问，添加前缀避免Agent调用工具
-    
+
     Args:
         prompt: 原始提问
-        
+
     Returns:
         优化后的提问
     """
     if not prompt:
         return prompt
-    # 避免重复添加前缀
-    if prompt.startswith(INTERVIEW_PROMPT_PREFIX):
+    prefix = get_interview_prompt_prefix()
+    # 避免重复添加前缀 (check both EN and ZH variants)
+    if prompt.startswith(_INTERVIEW_PROMPT_PREFIX_EN) or prompt.startswith(_INTERVIEW_PROMPT_PREFIX_ZH):
         return prompt
-    return f"{INTERVIEW_PROMPT_PREFIX}{prompt}"
+    return f"{prefix}{prompt}"
 
 
 # ============== 实体读取接口 ==============

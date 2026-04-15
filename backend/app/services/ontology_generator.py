@@ -8,7 +8,7 @@ import logging
 import re
 from typing import Dict, Any, List, Optional
 from ..utils.llm_client import LLMClient
-from ..utils.locale import get_language_instruction
+from ..utils.locale import get_language_instruction, get_localized_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,153 @@ def _to_pascal_case(name: str) -> str:
     return result if result else 'Unknown'
 
 
-# 本体生成的系统提示词
-ONTOLOGY_SYSTEM_PROMPT = """你是一个专业的知识图谱本体设计专家。你的任务是分析给定的文本内容和模拟需求，设计适合**社交媒体舆论模拟**的实体类型和关系类型。
+# Ontology generation system prompt — English default
+_ONTOLOGY_SYSTEM_PROMPT_EN = """You are a professional knowledge graph ontology design expert. Your task is to analyze the given text content and simulation requirements, and design entity types and relationship types suitable for **social media opinion simulation**.
+
+**Important: You must output valid JSON format data. Do not output anything else.**
+
+## Core Task Background
+
+We are building a **social media opinion simulation system**. In this system:
+- Each entity is an "account" or "agent" that can post, interact, and spread information on social media
+- Entities influence each other through reposts, comments, and responses
+- We need to simulate the reactions of various parties and information propagation paths during public opinion events
+
+Therefore, **entities must be real-world subjects that can post and interact on social media**:
+
+**Can be**:
+- Specific individuals (public figures, parties involved, opinion leaders, experts/scholars, ordinary people)
+- Companies/enterprises (including their official accounts)
+- Organizations (universities, associations, NGOs, unions, etc.)
+- Government departments, regulatory agencies
+- Media organizations (newspapers, TV stations, self-media, websites)
+- Social media platforms themselves
+- Representatives of specific groups (alumni associations, fan groups, advocacy groups, etc.)
+
+**Cannot be**:
+- Abstract concepts (e.g., "public opinion", "sentiment", "trend")
+- Topics/themes (e.g., "academic integrity", "education reform")
+- Viewpoints/attitudes (e.g., "supporters", "opponents")
+
+## Output Format
+
+Please output in JSON format with the following structure:
+
+```json
+{
+    "entity_types": [
+        {
+            "name": "Entity type name (English, PascalCase)",
+            "description": "Brief description (English, max 100 characters)",
+            "attributes": [
+                {
+                    "name": "Attribute name (English, snake_case)",
+                    "type": "text",
+                    "description": "Attribute description"
+                }
+            ],
+            "examples": ["Example entity 1", "Example entity 2"]
+        }
+    ],
+    "edge_types": [
+        {
+            "name": "Relationship type name (English, UPPER_SNAKE_CASE)",
+            "description": "Brief description (English, max 100 characters)",
+            "source_targets": [
+                {"source": "Source entity type", "target": "Target entity type"}
+            ],
+            "attributes": []
+        }
+    ],
+    "analysis_summary": "Brief analysis of the text content"
+}
+```
+
+## Design Guidelines (Extremely Important!)
+
+### 1. Entity Type Design — Must Strictly Follow
+
+**Quantity requirement: Exactly 10 entity types**
+
+**Hierarchical structure requirements (must include both specific and fallback types)**:
+
+Your 10 entity types must include the following levels:
+
+A. **Fallback types (must include, placed as the last 2 in the list)**:
+   - `Person`: Fallback type for any individual. When a person doesn't belong to any more specific person type, classify them here.
+   - `Organization`: Fallback type for any organization. When an organization doesn't belong to any more specific organization type, classify it here.
+
+B. **Specific types (8, designed based on text content)**:
+   - Design more specific types for the main roles appearing in the text
+   - Example: For academic events, you might have `Student`, `Professor`, `University`
+   - Example: For business events, you might have `Company`, `CEO`, `Employee`
+
+**Why fallback types are needed**:
+- Various people appear in the text, such as "elementary school teachers", "passersby", "some netizen"
+- If there's no specific type match, they should be classified under `Person`
+- Similarly, small organizations, temporary groups, etc. should be classified under `Organization`
+
+**Design principles for specific types**:
+- Identify high-frequency or key role types from the text
+- Each specific type should have clear boundaries to avoid overlap
+- Description must clearly explain the difference between this type and the fallback type
+
+### 2. Relationship Type Design
+
+- Quantity: 6-10
+- Relationships should reflect real connections in social media interactions
+- Ensure relationship source_targets cover the entity types you defined
+
+### 3. Attribute Design
+
+- 1-3 key attributes per entity type
+- **Note**: Attribute names cannot use `name`, `uuid`, `group_id`, `created_at`, `summary` (these are system reserved words)
+- Recommended: `full_name`, `title`, `role`, `position`, `location`, `description`, etc.
+
+## Entity Type Reference
+
+**Individual (specific)**:
+- Student
+- Professor
+- Journalist
+- Celebrity
+- Executive
+- Official
+- Lawyer
+- Doctor
+
+**Individual (fallback)**:
+- Person: Any individual (used when no specific type above matches)
+
+**Organization (specific)**:
+- University
+- Company
+- GovernmentAgency
+- MediaOutlet
+- Hospital
+- School
+- NGO
+
+**Organization (fallback)**:
+- Organization: Any organization (used when no specific type above matches)
+
+## Relationship Type Reference
+
+- WORKS_FOR
+- STUDIES_AT
+- AFFILIATED_WITH
+- REPRESENTS
+- REGULATES
+- REPORTS_ON
+- COMMENTS_ON
+- RESPONDS_TO
+- SUPPORTS
+- OPPOSES
+- COLLABORATES_WITH
+- COMPETES_WITH
+"""
+
+_ONTOLOGY_SYSTEM_PROMPT_ZH = """你是一个专业的知识图谱本体设计专家。你的任务是分析给定的文本内容和模拟需求，设计适合**社交媒体舆论模拟**的实体类型和关系类型。
 
 **重要：你必须输出有效的JSON格式数据，不要输出任何其他内容。**
 
@@ -173,6 +318,10 @@ B. **具体类型（8个，根据文本内容设计）**：
 """
 
 
+def _get_ontology_system_prompt():
+    return get_localized_prompt(_ONTOLOGY_SYSTEM_PROMPT_EN, _ONTOLOGY_SYSTEM_PROMPT_ZH)
+
+
 class OntologyGenerator:
     """
     本体生成器
@@ -207,7 +356,7 @@ class OntologyGenerator:
         )
         
         lang_instruction = get_language_instruction()
-        system_prompt = f"{ONTOLOGY_SYSTEM_PROMPT}\n\n{lang_instruction}\nIMPORTANT: Entity type names MUST be in English PascalCase (e.g., 'PersonEntity', 'MediaOrganization'). Relationship type names MUST be in English UPPER_SNAKE_CASE (e.g., 'WORKS_FOR'). Attribute names MUST be in English snake_case. Only description fields and analysis_summary should use the specified language above."
+        system_prompt = f"{_get_ontology_system_prompt()}\n\n{lang_instruction}\nIMPORTANT: Entity type names MUST be in English PascalCase (e.g., 'PersonEntity', 'MediaOrganization'). Relationship type names MUST be in English UPPER_SNAKE_CASE (e.g., 'WORKS_FOR'). Attribute names MUST be in English snake_case. Only description fields and analysis_summary should use the specified language above."
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message}
