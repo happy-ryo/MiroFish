@@ -237,7 +237,10 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as d3 from 'd3'
+
+const { locale } = useI18n()
 
 const props = defineProps({
   graphData: Object,
@@ -303,7 +306,7 @@ const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
   try {
     const date = new Date(dateStr)
-    return date.toLocaleString('en-US', { 
+    return date.toLocaleString(locale.value, {
       month: 'short', 
       day: 'numeric', 
       year: 'numeric',
@@ -1038,7 +1041,7 @@ input:checked + .slider:before {
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
   overflow: hidden;
-  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  font-family: 'Noto Sans SC', 'Noto Sans JP', system-ui, sans-serif;
   font-size: 13px;
   z-index: 20;
   display: flex;

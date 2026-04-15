@@ -413,7 +413,10 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+
+const { locale } = useI18n()
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import * as d3 from 'd3'
@@ -503,7 +506,7 @@ const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   try {
     const date = new Date(dateStr)
-    return date.toLocaleString('zh-CN', {
+    return date.toLocaleString(locale.value, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -1104,7 +1107,7 @@ onUnmounted(() => {
 .process-page {
   min-height: 100vh;
   background: var(--white);
-  font-family: 'JetBrains Mono', 'Noto Sans SC', monospace;
+  font-family: 'JetBrains Mono', 'Noto Sans SC', 'Noto Sans JP', monospace;
   overflow: hidden; /* Prevent body scroll in fullscreen */
 }
 
