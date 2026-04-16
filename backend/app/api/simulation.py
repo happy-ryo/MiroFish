@@ -14,33 +14,38 @@ from ..services.oasis_profile_generator import OasisProfileGenerator
 from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
-from ..utils.locale import t, get_locale, set_locale
+from ..utils.locale import t, get_locale, set_locale, get_localized_prompt
 from ..models.project import ProjectManager
 
 logger = get_logger('mirofish.api.simulation')
 
 
-# Interview prompt 优化前缀
-# 添加此前缀可以避免Agent调用工具，直接用文本回复
-INTERVIEW_PROMPT_PREFIX = "结合你的人设、所有的过往记忆与行动，不调用任何工具直接用文本回复我："
+# Interview prompt prefix — instructs the Agent to reply in plain text without tool calls
+_INTERVIEW_PROMPT_PREFIX_EN = "Based on your persona, all past memories and actions, reply directly in text without calling any tools: "
+_INTERVIEW_PROMPT_PREFIX_ZH = "结合你的人设、所有的过往记忆与行动，不调用任何工具直接用文本回复我："
+
+
+def get_interview_prompt_prefix() -> str:
+    return get_localized_prompt(_INTERVIEW_PROMPT_PREFIX_EN, _INTERVIEW_PROMPT_PREFIX_ZH)
 
 
 def optimize_interview_prompt(prompt: str) -> str:
     """
     优化Interview提问，添加前缀避免Agent调用工具
-    
+
     Args:
         prompt: 原始提问
-        
+
     Returns:
         优化后的提问
     """
     if not prompt:
         return prompt
-    # 避免重复添加前缀
-    if prompt.startswith(INTERVIEW_PROMPT_PREFIX):
+    prefix = get_interview_prompt_prefix()
+    # 避免重复添加前缀 (check both EN and ZH variants)
+    if prompt.startswith(_INTERVIEW_PROMPT_PREFIX_EN) or prompt.startswith(_INTERVIEW_PROMPT_PREFIX_ZH):
         return prompt
-    return f"{INTERVIEW_PROMPT_PREFIX}{prompt}"
+    return f"{prefix}{prompt}"
 
 
 # ============== 实体读取接口 ==============
@@ -260,7 +265,7 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
     
     # 检查目录是否存在
     if not os.path.exists(simulation_dir):
-        return False, {"reason": "模拟目录不存在"}
+        return False, {"reason": get_localized_prompt("Simulation directory not found", "模拟目录不存在")}
     
     # 必要文件列表（不包括脚本，脚本位于 backend/scripts/）
     required_files = [
@@ -282,7 +287,7 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
     
     if missing_files:
         return False, {
-            "reason": "缺少必要文件",
+            "reason": get_localized_prompt("Missing required files", "缺少必要文件"),
             "missing_files": missing_files,
             "existing_files": existing_files
         }
@@ -347,13 +352,19 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
         else:
             logger.warning(f"模拟 {simulation_id} 检测结果: 未准备完成 (status={status}, config_generated={config_generated})")
             return False, {
-                "reason": f"状态不在已准备列表中或config_generated为false: status={status}, config_generated={config_generated}",
+                "reason": get_localized_prompt(
+                    f"Status not in ready list or config_generated is false: status={status}, config_generated={config_generated}",
+                    f"状态不在已准备列表中或config_generated为false: status={status}, config_generated={config_generated}"
+                ),
                 "status": status,
                 "config_generated": config_generated
             }
             
     except Exception as e:
-        return False, {"reason": f"读取状态文件失败: {str(e)}"}
+        return False, {"reason": get_localized_prompt(
+            f"Failed to read state file: {str(e)}",
+            f"读取状态文件失败: {str(e)}"
+        )}
 
 
 @simulation_bp.route('/prepare', methods=['POST'])

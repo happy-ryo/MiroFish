@@ -20,7 +20,7 @@ from queue import Queue
 
 from ..config import Config
 from ..utils.logger import get_logger
-from ..utils.locale import get_locale, set_locale
+from ..utils.locale import get_locale, get_localized_prompt, set_locale
 from .zep_graph_memory_updater import ZepGraphMemoryManager
 from .simulation_ipc import SimulationIPCClient, CommandType, IPCResponse
 
@@ -334,14 +334,14 @@ class SimulationRunner:
         # 检查是否已在运行
         existing = cls.get_run_state(simulation_id)
         if existing and existing.runner_status in [RunnerStatus.RUNNING, RunnerStatus.STARTING]:
-            raise ValueError(f"模拟已在运行中: {simulation_id}")
+            raise ValueError(f"Simulation already running: {simulation_id}")
         
         # 加载模拟配置
         sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
         config_path = os.path.join(sim_dir, "simulation_config.json")
         
         if not os.path.exists(config_path):
-            raise ValueError(f"模拟配置不存在，请先调用 /prepare 接口")
+            raise ValueError("Simulation config not found, please call /prepare first")
         
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
@@ -372,7 +372,7 @@ class SimulationRunner:
         # 如果启用图谱记忆更新，创建更新器
         if enable_graph_memory_update:
             if not graph_id:
-                raise ValueError("启用图谱记忆更新时必须提供 graph_id")
+                raise ValueError("graph_id is required when graph memory update is enabled")
             
             try:
                 ZepGraphMemoryManager.create_updater(simulation_id, graph_id)
@@ -399,7 +399,7 @@ class SimulationRunner:
         script_path = os.path.join(cls.SCRIPTS_DIR, script_name)
         
         if not os.path.exists(script_path):
-            raise ValueError(f"脚本不存在: {script_path}")
+            raise ValueError(f"Script not found: {script_path}")
         
         # 创建动作队列
         action_queue = Queue()
@@ -539,7 +539,10 @@ class SimulationRunner:
                             error_info = f.read()[-2000:]  # 取最后2000字符
                 except Exception:
                     pass
-                state.error = f"进程退出码: {exit_code}, 错误: {error_info}"
+                state.error = get_localized_prompt(
+                    f"Process exit code: {exit_code}, error: {error_info}",
+                    f"进程退出码: {exit_code}, 错误: {error_info}"
+                )
                 logger.error(f"模拟失败: {simulation_id}, error={state.error}")
             
             state.twitter_running = False
@@ -778,10 +781,10 @@ class SimulationRunner:
         """停止模拟"""
         state = cls.get_run_state(simulation_id)
         if not state:
-            raise ValueError(f"模拟不存在: {simulation_id}")
-        
+            raise ValueError(f"Simulation not found: {simulation_id}")
+
         if state.runner_status not in [RunnerStatus.RUNNING, RunnerStatus.PAUSED]:
-            raise ValueError(f"模拟未在运行: {simulation_id}, status={state.runner_status}")
+            raise ValueError(f"Simulation not running: {simulation_id}, status={state.runner_status}")
         
         state.runner_status = RunnerStatus.STOPPING
         cls._save_run_state(state)
@@ -1237,7 +1240,10 @@ class SimulationRunner:
                         state.twitter_running = False
                         state.reddit_running = False
                         state.completed_at = datetime.now().isoformat()
-                        state.error = "服务器关闭，模拟被终止"
+                        state.error = get_localized_prompt(
+                            "Server shutdown, simulation terminated",
+                            "服务器关闭，模拟被终止"
+                        )
                         cls._save_run_state(state)
                     
                     # 同时更新 state.json，将状态设为 stopped
@@ -1455,12 +1461,12 @@ class SimulationRunner:
         """
         sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
         if not os.path.exists(sim_dir):
-            raise ValueError(f"模拟不存在: {simulation_id}")
+            raise ValueError(f"Simulation not found: {simulation_id}")
 
         ipc_client = SimulationIPCClient(sim_dir)
 
         if not ipc_client.check_env_alive():
-            raise ValueError(f"模拟环境未运行或已关闭，无法执行Interview: {simulation_id}")
+            raise ValueError(f"Simulation env not running or closed, cannot execute interview: {simulation_id}")
 
         logger.info(f"发送Interview命令: simulation_id={simulation_id}, agent_id={agent_id}, platform={platform}")
 
@@ -1517,12 +1523,12 @@ class SimulationRunner:
         """
         sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
         if not os.path.exists(sim_dir):
-            raise ValueError(f"模拟不存在: {simulation_id}")
+            raise ValueError(f"Simulation not found: {simulation_id}")
 
         ipc_client = SimulationIPCClient(sim_dir)
 
         if not ipc_client.check_env_alive():
-            raise ValueError(f"模拟环境未运行或已关闭，无法执行Interview: {simulation_id}")
+            raise ValueError(f"Simulation env not running or closed, cannot execute interview: {simulation_id}")
 
         logger.info(f"发送批量Interview命令: simulation_id={simulation_id}, count={len(interviews)}, platform={platform}")
 
@@ -1574,19 +1580,19 @@ class SimulationRunner:
         """
         sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
         if not os.path.exists(sim_dir):
-            raise ValueError(f"模拟不存在: {simulation_id}")
+            raise ValueError(f"Simulation not found: {simulation_id}")
 
         # 从配置文件获取所有Agent信息
         config_path = os.path.join(sim_dir, "simulation_config.json")
         if not os.path.exists(config_path):
-            raise ValueError(f"模拟配置不存在: {simulation_id}")
+            raise ValueError(f"Simulation config not found: {simulation_id}")
 
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
 
         agent_configs = config.get("agent_configs", [])
         if not agent_configs:
-            raise ValueError(f"模拟配置中没有Agent: {simulation_id}")
+            raise ValueError(f"No agents in simulation config: {simulation_id}")
 
         # 构建批量采访列表
         interviews = []
@@ -1627,14 +1633,14 @@ class SimulationRunner:
         """
         sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
         if not os.path.exists(sim_dir):
-            raise ValueError(f"模拟不存在: {simulation_id}")
+            raise ValueError(f"Simulation not found: {simulation_id}")
         
         ipc_client = SimulationIPCClient(sim_dir)
         
         if not ipc_client.check_env_alive():
             return {
                 "success": True,
-                "message": "环境已经关闭"
+                "message": get_localized_prompt("Environment already closed", "环境已经关闭")
             }
         
         logger.info(f"发送关闭环境命令: simulation_id={simulation_id}")
@@ -1644,7 +1650,7 @@ class SimulationRunner:
             
             return {
                 "success": response.status.value == "completed",
-                "message": "环境关闭命令已发送",
+                "message": get_localized_prompt("Close environment command sent", "环境关闭命令已发送"),
                 "result": response.result,
                 "timestamp": response.timestamp
             }
@@ -1652,7 +1658,10 @@ class SimulationRunner:
             # 超时可能是因为环境正在关闭
             return {
                 "success": True,
-                "message": "环境关闭命令已发送（等待响应超时，环境可能正在关闭）"
+                "message": get_localized_prompt(
+                    "Close environment command sent (response timed out, environment may be shutting down)",
+                    "环境关闭命令已发送（等待响应超时，环境可能正在关闭）"
+                )
             }
     
     @classmethod

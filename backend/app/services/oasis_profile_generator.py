@@ -20,7 +20,7 @@ from zep_cloud.client import Zep
 
 from ..config import Config
 from ..utils.logger import get_logger
-from ..utils.locale import get_language_instruction, get_locale, set_locale, t
+from ..utils.locale import get_language_instruction, get_locale, get_localized_prompt, set_locale, t
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.oasis_profile')
@@ -191,7 +191,7 @@ class OasisProfileGenerator:
         self.model_name = model_name or Config.LLM_MODEL_NAME
         
         if not self.api_key:
-            raise ValueError("LLM_API_KEY 未配置")
+            raise ValueError("LLM_API_KEY not configured")
         
         self.client = OpenAI(
             api_key=self.api_key,
@@ -391,15 +391,18 @@ class OasisProfileGenerator:
                     if hasattr(node, 'summary') and node.summary:
                         all_summaries.add(node.summary)
                     if hasattr(node, 'name') and node.name and node.name != entity_name:
-                        all_summaries.add(f"相关实体: {node.name}")
+                        _related_label = get_localized_prompt("Related entity", "相关实体")
+                        all_summaries.add(f"{_related_label}: {node.name}")
             results["node_summaries"] = list(all_summaries)
-            
+
             # 构建综合上下文
             context_parts = []
             if results["facts"]:
-                context_parts.append("事实信息:\n" + "\n".join(f"- {f}" for f in results["facts"][:20]))
+                _facts_label = get_localized_prompt("Fact information", "事实信息")
+                context_parts.append(f"{_facts_label}:\n" + "\n".join(f"- {f}" for f in results["facts"][:20]))
             if results["node_summaries"]:
-                context_parts.append("相关实体:\n" + "\n".join(f"- {s}" for s in results["node_summaries"][:10]))
+                _related_label = get_localized_prompt("Related entities", "相关实体")
+                context_parts.append(f"{_related_label}:\n" + "\n".join(f"- {s}" for s in results["node_summaries"][:10]))
             results["context"] = "\n\n".join(context_parts)
             
             logger.info(f"Zep混合检索完成: {entity_name}, 获取 {len(results['facts'])} 条事实, {len(results['node_summaries'])} 个相关节点")
@@ -429,7 +432,8 @@ class OasisProfileGenerator:
                 if value and str(value).strip():
                     attrs.append(f"- {key}: {value}")
             if attrs:
-                context_parts.append("### 实体属性\n" + "\n".join(attrs))
+                _attr_heading = get_localized_prompt("### Entity Attributes", "### 实体属性")
+                context_parts.append(f"{_attr_heading}\n" + "\n".join(attrs))
         
         # 2. 添加相关边信息（事实/关系）
         existing_facts = set()
@@ -444,13 +448,15 @@ class OasisProfileGenerator:
                     relationships.append(f"- {fact}")
                     existing_facts.add(fact)
                 elif edge_name:
+                    _rel_entity = get_localized_prompt("related entity", "相关实体")
                     if direction == "outgoing":
-                        relationships.append(f"- {entity.name} --[{edge_name}]--> (相关实体)")
+                        relationships.append(f"- {entity.name} --[{edge_name}]--> ({_rel_entity})")
                     else:
-                        relationships.append(f"- (相关实体) --[{edge_name}]--> {entity.name}")
+                        relationships.append(f"- ({_rel_entity}) --[{edge_name}]--> {entity.name}")
             
             if relationships:
-                context_parts.append("### 相关事实和关系\n" + "\n".join(relationships))
+                _facts_heading = get_localized_prompt("### Related Facts and Relationships", "### 相关事实和关系")
+                context_parts.append(f"{_facts_heading}\n" + "\n".join(relationships))
         
         # 3. 添加关联节点的详细信息
         if entity.related_nodes:
@@ -470,7 +476,8 @@ class OasisProfileGenerator:
                     related_info.append(f"- **{node_name}**{label_str}")
             
             if related_info:
-                context_parts.append("### 关联实体信息\n" + "\n".join(related_info))
+                _related_heading = get_localized_prompt("### Related Entity Information", "### 关联实体信息")
+                context_parts.append(f"{_related_heading}\n" + "\n".join(related_info))
         
         # 4. 使用Zep混合检索获取更丰富的信息
         zep_results = self._search_zep_for_entity(entity)
@@ -479,10 +486,12 @@ class OasisProfileGenerator:
             # 去重：排除已存在的事实
             new_facts = [f for f in zep_results["facts"] if f not in existing_facts]
             if new_facts:
-                context_parts.append("### Zep检索到的事实信息\n" + "\n".join(f"- {f}" for f in new_facts[:15]))
-        
+                _zep_facts = get_localized_prompt("### Zep Retrieved Facts", "### Zep检索到的事实信息")
+                context_parts.append(f"{_zep_facts}\n" + "\n".join(f"- {f}" for f in new_facts[:15]))
+
         if zep_results.get("node_summaries"):
-            context_parts.append("### Zep检索到的相关节点\n" + "\n".join(f"- {s}" for s in zep_results["node_summaries"][:10]))
+            _zep_nodes = get_localized_prompt("### Zep Retrieved Related Nodes", "### Zep检索到的相关节点")
+            context_parts.append(f"{_zep_nodes}\n" + "\n".join(f"- {s}" for s in zep_results["node_summaries"][:10]))
         
         return "\n\n".join(context_parts)
     
@@ -671,7 +680,10 @@ class OasisProfileGenerator:
     
     def _get_system_prompt(self, is_individual: bool) -> str:
         """获取系统提示词"""
-        base_prompt = "你是社交媒体用户画像生成专家。生成详细、真实的人设用于舆论模拟,最大程度还原已有现实情况。必须返回有效的JSON格式，所有字符串值不能包含未转义的换行符。"
+        base_prompt = get_localized_prompt(
+            "You are a social media user profile generation expert. Generate detailed, realistic personas for opinion simulation, maximizing faithfulness to known real-world situations. Must return valid JSON format; all string values must not contain unescaped newline characters.",
+            "你是社交媒体用户画像生成专家。生成详细、真实的人设用于舆论模拟,最大程度还原已有现实情况。必须返回有效的JSON格式，所有字符串值不能包含未转义的换行符。"
+        )
         return f"{base_prompt}\n\n{get_language_instruction()}"
     
     def _build_individual_persona_prompt(
@@ -683,11 +695,50 @@ class OasisProfileGenerator:
         context: str
     ) -> str:
         """构建个人实体的详细人设提示词"""
-        
-        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
-        context_str = context[:3000] if context else "无额外上下文"
-        
-        return f"""为实体生成详细的社交媒体用户人设,最大程度还原已有现实情况。
+
+        _none_label = get_localized_prompt("None", "无")
+        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else _none_label
+        context_str = context[:3000] if context else get_localized_prompt("No additional context", "无额外上下文")
+
+        _template = get_localized_prompt(
+            # ── English ──
+            """Generate a detailed social media user persona for the entity, maximizing faithfulness to known real-world situations.
+
+Entity name: {entity_name}
+Entity type: {entity_type}
+Entity summary: {entity_summary}
+Entity attributes: {attrs_str}
+
+Context information:
+{context_str}
+
+Please generate JSON with the following fields:
+
+1. bio: Social media bio, 200 characters
+2. persona: Detailed persona description (2000-character plain text), must include:
+   - Basic information (age, profession, education, location)
+   - Background (important experiences, connection to events, social relationships)
+   - Personality traits (MBTI type, core personality, emotional expression style)
+   - Social media behavior (posting frequency, content preferences, interaction style, language characteristics)
+   - Stances and opinions (attitude toward topics, content that may anger/move them)
+   - Unique traits (catchphrases, special experiences, personal hobbies)
+   - Personal memories (important part of persona — introduce the individual's connection to events and their existing actions and reactions)
+3. age: Age number (must be an integer)
+4. gender: Must be English: "male" or "female"
+5. mbti: MBTI type (e.g., INTJ, ENFP)
+6. country: Country
+7. profession: Profession
+8. interested_topics: Array of interested topics
+
+Important:
+- All field values must be strings or numbers; do not use newline characters
+- persona must be a coherent text description
+- {lang_instruction} (gender field must use English male/female)
+- Content must be consistent with entity information
+- age must be a valid integer, gender must be "male" or "female"
+""",
+            # ── Chinese ──
+            """为实体生成详细的社交媒体用户人设,最大程度还原已有现实情况。
 
 实体名称: {entity_name}
 实体类型: {entity_type}
@@ -718,10 +769,19 @@ class OasisProfileGenerator:
 重要:
 - 所有字段值必须是字符串或数字，不要使用换行符
 - persona必须是一段连贯的文字描述
-- {get_language_instruction()} (gender字段必须用英文male/female)
+- {lang_instruction} (gender字段必须用英文male/female)
 - 内容要与实体信息保持一致
 - age必须是有效的整数，gender必须是"male"或"female"
 """
+        )
+        return _template.format(
+            entity_name=entity_name,
+            entity_type=entity_type,
+            entity_summary=entity_summary,
+            attrs_str=attrs_str,
+            context_str=context_str,
+            lang_instruction=get_language_instruction(),
+        )
 
     def _build_group_persona_prompt(
         self,
@@ -732,11 +792,49 @@ class OasisProfileGenerator:
         context: str
     ) -> str:
         """构建群体/机构实体的详细人设提示词"""
-        
-        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
-        context_str = context[:3000] if context else "无额外上下文"
-        
-        return f"""为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
+
+        _none_label = get_localized_prompt("None", "无")
+        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else _none_label
+        context_str = context[:3000] if context else get_localized_prompt("No additional context", "无额外上下文")
+
+        _template = get_localized_prompt(
+            # ── English ──
+            """Generate a detailed social media account profile for an organization/group entity, maximizing faithfulness to known real-world situations.
+
+Entity name: {entity_name}
+Entity type: {entity_type}
+Entity summary: {entity_summary}
+Entity attributes: {attrs_str}
+
+Context information:
+{context_str}
+
+Please generate JSON with the following fields:
+
+1. bio: Official account bio, 200 characters, professional and appropriate
+2. persona: Detailed account profile description (2000-character plain text), must include:
+   - Basic organization information (official name, nature, founding background, main functions)
+   - Account positioning (account type, target audience, core functions)
+   - Communication style (language characteristics, common expressions, taboo topics)
+   - Content characteristics (content types, posting frequency, active time periods)
+   - Stances and attitudes (official stance on core topics, approach to controversies)
+   - Special notes (represented group profile, operational habits)
+   - Organizational memory (important part of the persona — introduce the organization's connection to events and its existing actions and reactions)
+3. age: Fixed at 30 (virtual age for organization accounts)
+4. gender: Fixed as "other" (organization accounts use "other" to indicate non-individual)
+5. mbti: MBTI type, describes account style, e.g., ISTJ for rigorous and conservative
+6. country: Country
+7. profession: Organization function description
+8. interested_topics: Array of focus areas
+
+Important:
+- All field values must be strings or numbers; null values are not allowed
+- persona must be a coherent text description; do not use newline characters
+- {lang_instruction} (gender field must use English "other")
+- age must be integer 30, gender must be string "other"
+- Organization account statements must match its identity and positioning""",
+            # ── Chinese ──
+            """为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
 
 实体名称: {entity_name}
 实体类型: {entity_type}
@@ -767,9 +865,18 @@ class OasisProfileGenerator:
 重要:
 - 所有字段值必须是字符串或数字，不允许null值
 - persona必须是一段连贯的文字描述，不要使用换行符
-- {get_language_instruction()} (gender字段必须用英文"other")
+- {lang_instruction} (gender字段必须用英文"other")
 - age必须是整数30，gender必须是字符串"other"
 - 机构账号发言要符合其身份定位"""
+        )
+        return _template.format(
+            entity_name=entity_name,
+            entity_type=entity_type,
+            entity_summary=entity_summary,
+            attrs_str=attrs_str,
+            context_str=context_str,
+            lang_instruction=get_language_instruction(),
+        )
     
     def _generate_profile_rule_based(
         self,

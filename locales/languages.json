@@ -7,6 +7,10 @@
     "label": "English",
     "llmInstruction": "Please respond in English."
   },
+  "ja": {
+    "label": "日本語",
+    "llmInstruction": "日本語で回答してください。"
+  },
   "es": {
     "label": "Español",
     "llmInstruction": "Por favor, responde en español."
